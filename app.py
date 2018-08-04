@@ -78,22 +78,59 @@ def binary():
   SIZE      = GS  + b"\x21" # 10 = dh, 01 = dw
   CODEPAGE  = ESC + b"\x74" # 0 = CP437, 6 = WS1252
 
+  line1 = b"################################\n"
+
   output = b""
 
   output += ESC + b"\x37\x07\x7f\x02"
+  output += CODEPAGE + b"\x06"
 
   output += BOLD+b"\x01"
   output += JUSTIFY+b"\x01"
-  output += b"################################\n"
+  output += line1
   output += SIZE+b"\x11"
   output += b"Extrato\nParlamentar\n"
   output += SIZE+b"\x00"
-  output += b"################################\n"
+  output += line1
   output += JUSTIFY+b"\x00"
   output += BOLD+b"\x00"
 
   output += b"Projetos de "
   output += datetime.strftime(datetime.now(), "%Y-%m-%d").encode("ascii")
   output += b"\n"
+
+  if not tt:
+    output += b"Erro ao ler API!\n"
+  else:
+    for t in tt:
+      #titulo (PEC num/ano)
+      output += SIZE+b"\x10"
+      output += b"[" + t['siglaTipo'].encode("ascii") + b" " + str(t['numero']).encode("ascii") + b"/" + str(t['ano']).encode("ascii") + b"]\n"
+      output += SIZE+b"\x00"
+      #ementa + ementa detalhada
+      output += t['ementa'].encode("cp1252") + b"\n"
+      # TODO: quebra de linha sem quebrar palavras
+      #status
+      output += BOLD+b"\x01"
+      output += b"Status: "
+      output += BOLD+b"\x00"
+      output += t['statusProposicao']['descricaoSituacao'].encode("cp1252") + b"\n"
+      #autor
+      # TODO: foto
+      for a in t['autores']:
+        try:
+          output += a['ultimoStatus']['nome'].encode("cp1252")
+          output += b" - "
+          output += a['ultimoStatus']['siglaPartido'].encode("ascii")
+          output += b"\n"
+        except KeyError:
+          pass
+      #url
+      # TODO: shorten e qrcode
+      output += b"URL: http://www.camara.gov.br/proposicoesWeb/fichadetramitacao?idProposicao="
+      output += str(t['id']).encode("ascii")
+      output += b"\n"
+
+  output += b"\n\n\n"
 
   return Response(output, mimetype='application/octet-stream')
