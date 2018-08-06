@@ -1,6 +1,6 @@
 import json, requests, os
 from datetime import datetime
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect
 from werkzeug.wrappers import Request, Response
 
 # API - https://dadosabertos.camara.leg.br/swagger/api.html
@@ -133,3 +133,7 @@ def build_binary():
 @app.route("/binary")
 def binary():
   return Response(build_binary(), mimetype='application/octet-stream')
+
+@app.route("/s/<id>")
+def shorten(id):
+  return redirect("http://www.camara.gov.br/proposicoesWeb/fichadetramitacao?idProposicao="+id)
