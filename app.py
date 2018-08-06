@@ -64,10 +64,7 @@ def tramita():
   tt = lockandload()
   return render_template('tramita.html', projetos=tt)
 
-@app.route("/binary")
-def binary():
-  tt = lockandload()
-
+def build_binary():
   ESC       = b"\x1b"
   GS        = b"\x1d"
   BOLD      = ESC + b"\x45" # 0 or 1
@@ -80,57 +77,59 @@ def binary():
 
   line1 = b"################################\n"
 
-  output = b""
+  yield ESC + b"\x37\x07\x7f\x02"
+  yield CODEPAGE + b"\x06"
 
-  output += ESC + b"\x37\x07\x7f\x02"
-  output += CODEPAGE + b"\x06"
+  yield BOLD+b"\x01"
+  yield JUSTIFY+b"\x01"
+  yield line1
+  yield SIZE+b"\x11"
+  yield b"Extrato\nParlamentar\n"
+  yield SIZE+b"\x00"
+  yield line1
+  yield JUSTIFY+b"\x00"
+  yield BOLD+b"\x00"
 
-  output += BOLD+b"\x01"
-  output += JUSTIFY+b"\x01"
-  output += line1
-  output += SIZE+b"\x11"
-  output += b"Extrato\nParlamentar\n"
-  output += SIZE+b"\x00"
-  output += line1
-  output += JUSTIFY+b"\x00"
-  output += BOLD+b"\x00"
-
-  output += b"Projetos de "
-  output += datetime.strftime(datetime.now(), "%Y-%m-%d").encode("ascii")
-  output += b"\n"
+  tt = lockandload()
 
   if not tt:
-    output += b"Erro ao ler API!\n"
+    yield b"Erro ao ler API!\n"
   else:
+    yield b"Projetos de "
+    yield datetime.strftime(datetime.now(), "%Y-%m-%d").encode("ascii")
+    yield b"\n"
+
     for t in tt:
       #titulo (PEC num/ano)
-      output += SIZE+b"\x10"
-      output += b"[" + t['siglaTipo'].encode("ascii") + b" " + str(t['numero']).encode("ascii") + b"/" + str(t['ano']).encode("ascii") + b"]\n"
-      output += SIZE+b"\x00"
+      yield SIZE+b"\x10"
+      yield b"[" + t['siglaTipo'].encode("ascii") + b" " + str(t['numero']).encode("ascii") + b"/" + str(t['ano']).encode("ascii") + b"]\n"
+      yield SIZE+b"\x00"
       #ementa + ementa detalhada
-      output += t['ementa'].encode("cp1252") + b"\n"
+      yield t['ementa'].encode("cp1252") + b"\n"
       # TODO: quebra de linha sem quebrar palavras
       #status
-      output += BOLD+b"\x01"
-      output += b"Status: "
-      output += BOLD+b"\x00"
-      output += t['statusProposicao']['descricaoSituacao'].encode("cp1252") + b"\n"
+      yield BOLD+b"\x01"
+      yield b"Status: "
+      yield BOLD+b"\x00"
+      yield t['statusProposicao']['descricaoSituacao'].encode("cp1252") + b"\n"
       #autor
       # TODO: foto
       for a in t['autores']:
         try:
-          output += a['ultimoStatus']['nome'].encode("cp1252")
-          output += b" - "
-          output += a['ultimoStatus']['siglaPartido'].encode("ascii")
-          output += b"\n"
+          yield a['ultimoStatus']['nome'].encode("cp1252")
+          yield b" - "
+          yield a['ultimoStatus']['siglaPartido'].encode("ascii")
+          yield b"\n"
         except KeyError:
           pass
       #url
       # TODO: shorten e qrcode
-      output += b"URL: http://www.camara.gov.br/proposicoesWeb/fichadetramitacao?idProposicao="
-      output += str(t['id']).encode("ascii")
-      output += b"\n"
+      yield b"URL: http://www.camara.gov.br/proposicoesWeb/fichadetramitacao?idProposicao="
+      yield str(t['id']).encode("ascii")
+      yield b"\n"
 
-  output += b"\n\n\n"
+  yield b"\n\n\n"
 
-  return Response(output, mimetype='application/octet-stream')
+@app.route("/binary")
+def binary():
+  return Response(build_binary(), mimetype='application/octet-stream')
