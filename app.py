@@ -1,10 +1,11 @@
-import json, requests, os
+import json, requests, os, qrcode, PIL
 from datetime import datetime
 from flask import Flask, render_template, redirect
 from werkzeug.wrappers import Request, Response
 
 # API - https://dadosabertos.camara.leg.br/swagger/api.html
 # PATH = os.path.dirname(os.path.abspath(__file__)) + "/data/archive.json"
+HOSTNAME = "https://ep.labhacker.org.br/"
 
 class Tramitacoes():
   def __init__(self, data={}):
@@ -57,6 +58,14 @@ def lockandload():
   
   return tt
 
+def getFoto(id, tt):
+  path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", id+".pic")
+
+  if os.path.isfile(path):
+    
+  else:
+
+
 app = Flask(__name__)
 
 @app.route("/")
@@ -73,12 +82,12 @@ def build_binary():
   JUSTIFY   = ESC + b"\x61" # 0 = l, 1 = c, 2 = r
   FONT      = ESC + b"\x4d" # 0 = a, 1 = b
   SIZE      = GS  + b"\x21" # 10 = dh, 01 = dw
-  CODEPAGE  = ESC + b"\x74" # 0 = CP437, 6 = WS1252
+  CODEPAGE  = ESC + b"\x74" # 0 = CP437, 16 = WS1252
 
   line1 = b"################################\n"
 
   yield ESC + b"\x37\x07\x7f\x02"
-  yield CODEPAGE + b"\x06"
+  yield CODEPAGE + b"\x16"
 
   yield BOLD+b"\x01"
   yield JUSTIFY+b"\x01"
@@ -116,6 +125,8 @@ def build_binary():
       # TODO: foto
       for a in t['autores']:
         try:
+          
+          yield getFoto(a['id'], tt)
           yield a['ultimoStatus']['nome'].encode("cp1252")
           yield b" - "
           yield a['ultimoStatus']['siglaPartido'].encode("ascii")
@@ -124,7 +135,7 @@ def build_binary():
           pass
       #url
       # TODO: shorten e qrcode
-      yield b"URL: http://www.camara.gov.br/proposicoesWeb/fichadetramitacao?idProposicao="
+      yield b"URL: " + HOSTNAME.encode("ascii")
       yield str(t['id']).encode("ascii")
       yield b"\n"
 
