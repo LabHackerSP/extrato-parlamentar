@@ -59,11 +59,11 @@ def lockandload():
   return tt
 
 def getFoto(id, tt):
-  path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", id+".pic")
+  path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", str(id)+".pic")
 
-  if os.path.isfile(path):
+#  if os.path.isfile(path):
     
-  else:
+#  else:
 
 
 app = Flask(__name__)
@@ -83,11 +83,12 @@ def build_binary():
   FONT      = ESC + b"\x4d" # 0 = a, 1 = b
   SIZE      = GS  + b"\x21" # 10 = dh, 01 = dw
   CODEPAGE  = ESC + b"\x74" # 0 = CP437, 16 = WS1252
+  CHAR      = ESC + b"\x21" # 0 = font a, 1 = font b
 
   line1 = b"################################\n"
 
-  yield ESC + b"\x37\x07\x7f\x02"
-  yield CODEPAGE + b"\x16"
+  yield ESC + b"\x37\x07\x40\x01"
+  yield CODEPAGE + b"\x23"
 
   yield BOLD+b"\x01"
   yield JUSTIFY+b"\x01"
@@ -125,8 +126,7 @@ def build_binary():
       # TODO: foto
       for a in t['autores']:
         try:
-          
-          yield getFoto(a['id'], tt)
+          #yield getFoto(a['id'], tt)
           yield a['ultimoStatus']['nome'].encode("cp1252")
           yield b" - "
           yield a['ultimoStatus']['siglaPartido'].encode("ascii")
@@ -134,10 +134,13 @@ def build_binary():
         except KeyError:
           pass
       #url
-      # TODO: shorten e qrcode
+      # TODO: qrcode
+      yield CHAR + b"\x01"
       yield b"URL: " + HOSTNAME.encode("ascii")
       yield str(t['id']).encode("ascii")
+      yield CHAR + b"\x00"
       yield b"\n"
+      yield line1
 
   yield b"\n\n\n"
 
