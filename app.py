@@ -150,4 +150,6 @@ def binary():
 
 @app.route("/s/<id>")
 def shorten(id):
+  if(not id.isdigit()):
+    raise ValueError("ID só pode conter números")
   return redirect("http://www.camara.gov.br/proposicoesWeb/fichadetramitacao?idProposicao="+id)
