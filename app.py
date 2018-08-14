@@ -1,11 +1,25 @@
-import json, requests, os, qrcode, PIL
+import json, requests, os, qrcode, sys, struct
 from datetime import datetime
+from io import BytesIO
 from flask import Flask, render_template, redirect
 from werkzeug.wrappers import Request, Response
+from PIL import Image
 
 # API - https://dadosabertos.camara.leg.br/swagger/api.html
 # PATH = os.path.dirname(os.path.abspath(__file__)) + "/data/archive.json"
 HOSTNAME = "https://ep.labhacker.org.br/"
+
+ESC       = b"\x1b"
+GS        = b"\x1d"
+DC2       = b"\x12"
+BOLD      = ESC + b"\x45" # 0 or 1
+UNDERLINE = ESC + b"\x2d" # 0 or 1
+REVERSE   = GS  + b"\x42" # 0 or 1
+JUSTIFY   = ESC + b"\x61" # 0 = l, 1 = c, 2 = r
+FONT      = ESC + b"\x4d" # 0 = a, 1 = b
+SIZE      = GS  + b"\x21" # 10 = dh, 01 = dw
+CODEPAGE  = ESC + b"\x74" # 0 = CP437, 16 = WS1252
+CHAR      = ESC + b"\x21" # 0 = font a, 1 = font b
 
 class Tramitacoes():
   def __init__(self, data={}):
@@ -36,6 +50,7 @@ class Tramitacoes():
           r = requests.get(a["uri"])
           a.update(json.loads(r.content.decode("utf-8"))['dados'])
 
+# retorna lista de tramitações do dia
 def lockandload():
   data = datetime.strftime(datetime.now(), "%Y-%m-%d")
   path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", data+".json")
@@ -58,13 +73,50 @@ def lockandload():
   
   return tt
 
-def getFoto(id, tt):
+# converte imagem PIL para binário da impressora, retorna com comando de controle inicial
+def converteFoto(p, w=None, h=None):
+  out = DC2 + b'*'
+
+  pic = p.copy()
+  size = (p.width, p.height)
+  if w or h:
+    if w == None:
+      size = (p.width / (p.height / h), h)
+    elif h == None:
+      size = (w, p.height / (p.width / w))
+    else:
+      size = (w, h)
+    # escala
+    pic = pic.resize(size)
+  
+  # converte imagem para p/b
+  pic = pic.convert("1")
+
+  out += struct.pack("B", size[0])
+  out += struct.pack("B", size[1])
+
+  out += pic.tobytes()
+  return out
+
+# busca foto de político com id e url e retorna binário
+def getFoto(id, url):
   path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", str(id)+".pic")
+  
+  pic = b''
 
-#  if os.path.isfile(path):
-    
-#  else:
+  try:
+    # carrega imagem pré-computada
+    with open(path, "rb") as f:
+      pic = f.read()
+  except (IOError, FileNotFoundError):
+    r = requests.get(url)
+    p = Image.open(BytesIO(r.content))
+    #converte para formato da impressora
+    pic = converteFoto(p, w=112)
+    with open(path, "wb") as f:
+      f.write(pic)
 
+  return pic
 
 app = Flask(__name__)
 
@@ -73,18 +125,8 @@ def tramita():
   tt = lockandload()
   return render_template('tramita.html', projetos=tt)
 
+# monta a saída binária da impressora térmica
 def build_binary():
-  ESC       = b"\x1b"
-  GS        = b"\x1d"
-  BOLD      = ESC + b"\x45" # 0 or 1
-  UNDERLINE = ESC + b"\x2d" # 0 or 1
-  REVERSE   = GS  + b"\x42" # 0 or 1
-  JUSTIFY   = ESC + b"\x61" # 0 = l, 1 = c, 2 = r
-  FONT      = ESC + b"\x4d" # 0 = a, 1 = b
-  SIZE      = GS  + b"\x21" # 10 = dh, 01 = dw
-  CODEPAGE  = ESC + b"\x74" # 0 = CP437, 16 = WS1252
-  CHAR      = ESC + b"\x21" # 0 = font a, 1 = font b
-
   line1 = b"################################\n"
 
   yield ESC + b"\x37\x07\x40\x01"
@@ -126,12 +168,13 @@ def build_binary():
       # TODO: foto
       for a in t['autores']:
         try:
-          #yield getFoto(a['id'], tt)
+          if a['ultimoStatus']['urlFoto']:
+            yield getFoto(a['id'], a['ultimoStatus']['urlFoto'])
           yield a['ultimoStatus']['nome'].encode("cp1252")
           yield b" - "
           yield a['ultimoStatus']['siglaPartido'].encode("ascii")
           yield b"\n"
-        except KeyError:
+        except:
           pass
       #url
       # TODO: qrcode
