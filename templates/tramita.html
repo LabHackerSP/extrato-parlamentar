@@ -1,0 +1,49 @@
+<!doctype html>
+<title>Extrato Parlamentar</title>
+<head>
+
+  <style>
+  .corpo {
+    width:420px;
+    background-color: #fff776;
+    color:#000;
+    padding:20px;
+  }
+  .projeto {
+    margin-top:10px;
+  }
+  </style>
+</head>
+
+<body>
+  <div class="corpo">
+    <h1>Extrato Parlamentar</h1>
+    <p>Você sabe o que esta acontecendo na <b>Câmara dos Deputados</b>?
+      O <b>Extrato Parlamentar traz para vocês as últimas movimentações dos projetos de lei e emendas constitucionais.</b>
+      Encontrou algo que te deixou curioso, irritado ou contente?
+      Entre em contato com o autor do PL e faça ele saber!</p>
+      <br />
+      <br />
+      <b>Projetos dos últimos 30 dias</b>
+{% for t in projetos %}
+  <div class="projeto">
+  ###############################
+  <h1>[{{t.siglaTipo}} {{t.numero}}/{{t.ano}}]</h1>
+  <p>{{t.ementa}}</p>
+  <p><b>Status:</b> {{t.statusProposicao.descricaoSituacao}}</p>
+  <!-- <p>{{t.statusProposicao.dataHora}}</p> -->
+  ###############################
+  {% for autor in t.autores %}
+    {% if autor.ultimoStatus %}
+    <img src="{{autor.ultimoStatus.urlFoto}}" /><br />
+    <b>{{autor.ultimoStatus.nome}} - {{autor.ultimoStatus.siglaPartido}}</b><br />
+    <!--<b>Entre em contato:</b>
+    <a href="mailto:{{autor.ultimoStatus.gabinete.email}}">{{autor.ultimoStatus.gabinete.email}}</a>-->
+    {% endif %}
+  {% endfor %}
+  <a href="http://www.camara.gov.br/proposicoesWeb/fichadetramitacao?idProposicao={{t.id}}">Veja mais</a>
+  ###############################
+  </div>
+{% endfor %}
+  </div>
+</body>
