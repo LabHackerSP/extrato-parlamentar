@@ -1,9 +1,9 @@
-import json, requests, os, qrcode, sys, struct
+import json, requests, os, qrcode, sys, struct, math
 from datetime import datetime
 from io import BytesIO
 from flask import Flask, render_template, redirect
 from werkzeug.wrappers import Request, Response
-from PIL import Image
+from PIL import Image, ImageOps
 
 # API - https://dadosabertos.camara.leg.br/swagger/api.html
 # PATH = os.path.dirname(os.path.abspath(__file__)) + "/data/archive.json"
@@ -81,19 +81,20 @@ def converteFoto(p, w=None, h=None):
   size = (p.width, p.height)
   if w or h:
     if w == None:
-      size = (p.width / (p.height / h), h)
+      size = (math.ceil(p.width / (p.height / h)), h)
     elif h == None:
-      size = (w, p.height / (p.width / w))
+      size = (w, math.ceil(p.height / (p.width / w)))
     else:
       size = (w, h)
     # escala
     pic = pic.resize(size)
   
   # converte imagem para p/b
+  pic = ImageOps.invert(pic)
   pic = pic.convert("1")
 
-  out += struct.pack("B", size[0])
   out += struct.pack("B", size[1])
+  out += struct.pack("B", math.floor(size[0]/8))
 
   out += pic.tobytes()
   return out
@@ -168,14 +169,17 @@ def build_binary():
       # TODO: foto
       for a in t['autores']:
         try:
-          if a['ultimoStatus']['urlFoto']:
-            yield getFoto(a['id'], a['ultimoStatus']['urlFoto'])
-          yield a['ultimoStatus']['nome'].encode("cp1252")
-          yield b" - "
-          yield a['ultimoStatus']['siglaPartido'].encode("ascii")
-          yield b"\n"
-        except:
+          if a['ultimoStatus']:
+            if a['ultimoStatus']['urlFoto']:
+              yield getFoto(a['id'], a['ultimoStatus']['urlFoto'])
+            yield a['ultimoStatus']['nome'].encode("cp1252")
+            yield b" - "
+            yield a['ultimoStatus']['siglaPartido'].encode("ascii")
+        except KeyError:
+          print(a)
+          yield a['nome'].encode("cp1252")
           pass
+        yield b"\n"
       #url
       # TODO: qrcode
       yield CHAR + b"\x01"
