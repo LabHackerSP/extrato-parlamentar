@@ -1,5 +1,8 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+
 import json, requests, os, qrcode, sys, struct, math
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 from flask import Flask, render_template, redirect
 from werkzeug.wrappers import Request, Response
@@ -51,8 +54,8 @@ class Tramitacoes():
           a.update(json.loads(r.content.decode("utf-8"))['dados'])
 
 # retorna lista de tramitações do dia
-def lockandload():
-  data = datetime.strftime(datetime.now(), "%Y-%m-%d")
+def lockandload(date):
+  data = datetime.strftime(date, "%Y-%m-%d")
   path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", data+".json")
 
   if os.path.isfile(path):
@@ -127,7 +130,7 @@ def tramita():
   return render_template('tramita.html', projetos=tt)
 
 # monta a saída binária da impressora térmica
-def build_binary():
+def build_binary(date=datetime.now()):
   line1 = b"################################\n"
 
   yield ESC + b"\x37\x07\x40\x01"
@@ -143,13 +146,13 @@ def build_binary():
   yield JUSTIFY+b"\x00"
   yield BOLD+b"\x00"
 
-  tt = lockandload()
+  tt = lockandload(date)
 
   if not tt:
     yield b"Erro ao ler API!\n"
   else:
     yield b"Projetos de "
-    yield datetime.strftime(datetime.now(), "%Y-%m-%d").encode("ascii")
+    yield datetime.strftime(date, "%Y-%m-%d").encode("ascii")
     yield b"\n"
 
     for t in tt:
@@ -194,6 +197,10 @@ def build_binary():
 @app.route("/binary")
 def binary():
   return Response(build_binary(), mimetype='application/octet-stream')
+
+@app.route("/binary2")
+def binary2():
+  return Response(build_binary(datetime.now() - timedelta(1)), mimetype='application/octet-stream')
 
 @app.route("/s/<id>")
 def shorten(id):
